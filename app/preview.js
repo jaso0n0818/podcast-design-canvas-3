@@ -197,6 +197,7 @@
       });
 
       drawActiveMoments(w, h);
+      drawActiveCaption(w, h);
 
       canvasEl.dataset.preset = episodeRef.presetId;
       canvasEl.dataset.speakers = String(buckets.length);
@@ -282,6 +283,61 @@
       ctx.strokeStyle = "rgba(255,255,255,0.92)";
       ctx.lineWidth = Math.max(3, Math.round(w * 0.003));
       ctx.strokeRect(x - 1, y - 1, dw + 2, dh + 2);
+    }
+
+    // Transcript captions: the WebVTT cue whose [start, end) range contains
+    // the shared reference time is painted every frame as a bottom-centered
+    // lower-third caption bar — the same canvas-text treatment as the timed
+    // moment banners (solid dark backing, light legible text), so captions are
+    // screenshot-visible over any preset or template and, because export
+    // records this same canvas, burned into the exported video at the cue's
+    // scheduled times. Long cues wrap to at most two lines.
+    function drawActiveCaption(w, h) {
+      if (!PDC.captions || !episodeRef) return;
+      const cue = PDC.captions.activeCue(episodeRef, referenceTime);
+      if (!cue) return;
+      ctx.save();
+      const fontPx = Math.max(18, Math.round(h * 0.045));
+      ctx.font = "600 " + fontPx + "px system-ui, sans-serif";
+      const maxTextW = w * 0.72;
+
+      // Greedy word wrap into at most two lines; anything past the second
+      // line stays on it and is squeezed by fillText's maxWidth clamp.
+      const words = String(cue.text).split(/\s+/).filter(Boolean);
+      const lines = [];
+      let current = "";
+      for (let i = 0; i < words.length; i++) {
+        const candidate = current ? current + " " + words[i] : words[i];
+        if (current && lines.length < 1 && ctx.measureText(candidate).width > maxTextW) {
+          lines.push(current);
+          current = words[i];
+        } else {
+          current = candidate;
+        }
+      }
+      if (current) lines.push(current);
+
+      const lineH = Math.round(h * 0.062);
+      const padX = Math.round(w * 0.02);
+      const padY = Math.round(h * 0.018);
+      let widest = 0;
+      lines.forEach(function (line) {
+        widest = Math.max(widest, Math.min(ctx.measureText(line).width, maxTextW));
+      });
+      const barW = Math.max(Math.round(widest) + padX * 2, Math.round(w * 0.42));
+      const barH = padY * 2 + lineH * lines.length;
+      const barX = Math.round((w - barW) / 2);
+      // Bottom-anchored just above the speaker name tags so neither hides the other.
+      const barY = Math.round(h * 0.955) - barH;
+      ctx.fillStyle = "rgba(8, 10, 16, 0.9)";
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      lines.forEach(function (line, i) {
+        ctx.fillText(line, w / 2, barY + padY + lineH * i + lineH / 2, maxTextW);
+      });
+      ctx.restore();
     }
 
     function loop() {

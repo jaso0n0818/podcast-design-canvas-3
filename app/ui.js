@@ -223,6 +223,94 @@
   });
   setInterval(syncScrub, 200);
 
+  // WebVTT transcript captions: upload a .vtt file, parse it into timed cues
+  // stored on the episode (app/captions.js), and let the preview burn the
+  // active cue onto the canvas. Captions survive preset/template switches
+  // exactly like moments because they live on the episode model.
+  const C = PDC.captions;
+  const CAPTION_LIST_MAX = 8;
+  function showCaptionError(message) {
+    const el = $("caption-error");
+    el.textContent = message || "";
+    el.hidden = !message;
+  }
+  function setCaptionStatus(message) {
+    $("caption-status").textContent = message || "";
+  }
+  function renderCaptionList() {
+    const list = $("caption-list");
+    list.innerHTML = "";
+    const store = C.getCaptions(episode);
+    const cues = store ? store.cues : [];
+    cues.slice(0, CAPTION_LIST_MAX).forEach(function (cue) {
+      const li = document.createElement("li");
+      const range = document.createElement("span");
+      range.className = "caption-range";
+      range.textContent = M.formatTime(cue.start) + "–" + M.formatTime(cue.end);
+      const text = document.createElement("span");
+      text.className = "caption-cue-text";
+      text.textContent = cue.text;
+      li.append(range, text);
+      list.appendChild(li);
+    });
+    if (cues.length > CAPTION_LIST_MAX) {
+      const more = document.createElement("li");
+      more.className = "caption-more";
+      more.textContent = "+ " + (cues.length - CAPTION_LIST_MAX) + " more cues";
+      list.appendChild(more);
+    }
+    $("caption-clear").hidden = !cues.length;
+  }
+  function applyLoadedCaptions(cues, fileName) {
+    C.setCaptions(episode, cues, fileName);
+    showCaptionError("");
+    const n = C.cueCount(episode);
+    setCaptionStatus(n + " caption" + (n === 1 ? "" : "s") + " loaded from " + fileName);
+    renderCaptionList();
+    const first = C.firstCue(episode);
+    if (first && !preview.isPlaying()) {
+      // Paused: jump to just inside the first cue and repaint, so the caption
+      // is immediately visible over the composed preview without pressing
+      // play. While playing we never yank the timeline.
+      const t = Math.min(first.start + 0.15, (first.start + first.end) / 2);
+      preview.seekTo(t);
+      scrubEl.value = String(t);
+      scrubTimeEl.textContent = M.formatTime(t);
+    } else {
+      preview.drawFrame();
+    }
+  }
+  $("caption-file").addEventListener("change", function () {
+    const file = $("caption-file").files && $("caption-file").files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onerror = function () {
+      $("caption-file").value = "";
+      setCaptionStatus("");
+      showCaptionError("The caption file could not be read — try uploading it again.");
+    };
+    reader.onload = function () {
+      $("caption-file").value = "";
+      const cues = C.parseVtt(String(reader.result));
+      const problem = C.validateVtt(cues);
+      if (problem) {
+        setCaptionStatus("");
+        showCaptionError(problem);
+        return;
+      }
+      applyLoadedCaptions(cues, file.name);
+    };
+    reader.readAsText(file);
+  });
+  $("caption-clear").addEventListener("click", function () {
+    C.clearCaptions(episode);
+    $("caption-file").value = "";
+    setCaptionStatus("");
+    showCaptionError("");
+    renderCaptionList();
+    preview.drawFrame();
+  });
+
   const audioButtons = Array.from(document.querySelectorAll("button[data-audio-setting]"));
   const AUDIO_KEYS = ["leveling", "clarity", "noiseReduction"];
   function syncAudioUi() {
@@ -381,6 +469,12 @@
     showMomentError("");
     renderMomentList();
 
+    // resetEpisode already cleared episode.captions; sync the caption controls.
+    $("caption-file").value = "";
+    setCaptionStatus("");
+    showCaptionError("");
+    renderCaptionList();
+
     $("export-progress").hidden = true;
     $("export-bar").style.width = "0%";
     $("export-result").hidden = true;
@@ -473,6 +567,7 @@
   SPEAKER_BUCKETS.forEach(updateBucketRow);
   syncAudioUi();
   renderMomentList();
+  renderCaptionList();
   renderTemplates();
   refresh();
 })();

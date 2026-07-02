@@ -256,6 +256,23 @@
       recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
       const stopped = new Promise((resolve) => (recorder.onstop = resolve));
 
+      // MediaRecorder startup takes real time on slow machines while the
+      // speakers keep playing, so re-seek any speaker that has drifted ahead
+      // back to 0 the instant recording actually begins — the recorded
+      // timeline then matches the episode timeline and scheduled overlays/
+      // captions burn in at the right times. Speakers still near 0 are left
+      // alone: on fast machines an unnecessary re-seek only ADDS latency (the
+      // seek itself takes time while the recorder is already rolling).
+      // Fire-and-forget with try/catch: a non-seekable element can never hang
+      // or fail the export.
+      recorder.onstart = function () {
+        for (const v of vids) {
+          try {
+            if (v.currentTime > 0.3) v.currentTime = 0;
+          } catch (e) { /* not seekable */ }
+        }
+      };
+
       recorder.start(200);
       const started = performance.now();
       const onProgress = opts.onProgress || function () {};

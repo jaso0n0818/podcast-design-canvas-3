@@ -21,6 +21,10 @@
       // timeline — managed by app/moments.js, kept here so they belong to the
       // episode and survive preset/template switches.
       moments: [],
+      // Imported WebVTT transcript captions ({ fileName, cues }) — managed by
+      // app/captions.js, kept here for the same reason: captions belong to the
+      // episode and survive preset/template switches; a fresh episode has none.
+      captions: null,
       audioQuality: {
         leveling: "balanced",
         clarity: "balanced",
