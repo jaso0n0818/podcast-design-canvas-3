@@ -28,6 +28,7 @@ const required = {
   ],
   moments: ["parseTime", "formatTime", "validateMoment", "resolveEnd", "addMoment", "removeMoment", "listMoments", "activeMoments"],
   captions: ["parseTranscript", "importCaptionMoments", "captionMoments"],
+  riverside: ["SAMPLE_LINK", "SAMPLE_URL_ALIAS", "resolveManifestPath", "parseManifest"],
 };
 
 const missing = [];

@@ -1,0 +1,10 @@
+{
+  "format": "riverside-episode",
+  "version": 1,
+  "title": "Demo Episode",
+  "tracks": [
+    { "role": "host", "name": "demo-episode-host.webm", "src": "host.webm" },
+    { "role": "guest1", "name": "demo-episode-guest1.webm", "src": "guest1.webm" },
+    { "role": "guest2", "name": "demo-episode-guest2.webm", "src": "guest2.webm" }
+  ]
+}

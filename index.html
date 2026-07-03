@@ -63,6 +63,24 @@
           </div>
         </div>
 
+        <!-- Riverside-link import: paste the repo's DECLARED sample manifest link
+             (fixtures/riverside/demo-episode.json — alias
+             https://riverside.fm/studio/demo-episode) and import Host, Guest 1,
+             and Guest 2 as real synced tracks in one click. Imported tracks flow
+             through the SAME ingest path as the manual uploads above (which stay
+             fully available). Real Riverside network integration/authentication
+             are deferred — only local fixture manifests resolve. -->
+        <div class="riverside-import" id="riverside-import-box">
+          <p class="riverside-title">…or import a Riverside episode link</p>
+          <p class="hint">Paste a Riverside-style episode link or manifest reference and every synced speaker track imports at once — sample: <code>fixtures/riverside/demo-episode.json</code> (alias <code>https://riverside.fm/studio/demo-episode</code>).</p>
+          <div class="riverside-controls">
+            <input id="riverside-link" type="text" placeholder="fixtures/riverside/demo-episode.json" aria-label="Riverside episode link or manifest reference" autocomplete="off" />
+            <button id="riverside-import" type="button">Import episode</button>
+          </div>
+          <p class="riverside-status" id="riverside-status" aria-live="polite"></p>
+          <p class="riverside-error" id="riverside-error" role="alert" hidden></p>
+        </div>
+
         <h2 class="step-title"><span class="num">2</span> Choose a preset or custom layout</h2>
         <div class="presets" id="presets" role="group" aria-label="Preset layouts"></div>
         <div class="templates" id="templates" role="group" aria-label="Saved custom layouts"></div>
@@ -175,6 +193,7 @@
 
     <script src="app/presets.js"></script>
     <script src="app/episode.js"></script>
+    <script src="app/riverside.js"></script>
     <script src="app/moments.js"></script>
     <script src="app/moment-images.js"></script>
     <script src="app/captions.js"></script>

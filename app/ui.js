@@ -85,6 +85,85 @@
     });
   });
 
+  // Riverside-link import: resolve the pasted link through the DOM-free model
+  // (app/riverside.js), fetch the manifest + every synced track, and run each
+  // track through the SAME ingest path a manual upload takes (assignMedia +
+  // preview.setSource + updateBucketRow) — imported tracks therefore behave
+  // identically for preset preview, layout customization, and export. Manual
+  // upload stays untouched. Only local fixture manifests resolve (see
+  // fixtures/riverside/README.md); real Riverside network integration is
+  // deferred. The link value is read at Import time, so pasting/setting it any
+  // way works — no event-order dependency.
+  const R = PDC.riverside;
+  function showRiversideError(message) {
+    const el = $("riverside-error");
+    el.textContent = message || "";
+    el.hidden = !message;
+  }
+  function setRiversideStatus(message) {
+    $("riverside-status").textContent = message || "";
+  }
+  async function fetchRiversideManifest(path) {
+    const response = await fetch(path, { cache: "no-store" });
+    if (!response.ok) throw new Error("the manifest at " + path + " could not be loaded (HTTP " + response.status + ")");
+    try {
+      return await response.json();
+    } catch (error) {
+      throw new Error("the manifest at " + path + " is not valid JSON");
+    }
+  }
+  async function importRiversideLink() {
+    const resolved = R.resolveManifestPath($("riverside-link").value);
+    if (!resolved.ok) {
+      showRiversideError(resolved.error);
+      setRiversideStatus("");
+      return;
+    }
+    const button = $("riverside-import");
+    button.disabled = true;
+    showRiversideError("");
+    setRiversideStatus("Importing " + resolved.path + "…");
+    try {
+      const manifest = R.parseManifest(await fetchRiversideManifest(resolved.path));
+      if (!manifest.ok) throw new Error(manifest.error);
+      // Fetch every synced track BEFORE assigning any, so a broken manifest
+      // can never leave the speaker buckets half-filled.
+      const manifestUrl = new URL(resolved.path, window.location.href);
+      const imports = [];
+      for (const track of manifest.tracks) {
+        const response = await fetch(new URL(track.src, manifestUrl).href, { cache: "no-store" });
+        if (!response.ok) throw new Error('track "' + track.name + '" could not be loaded (HTTP ' + response.status + ")");
+        const blob = await response.blob();
+        const type = blob.type && /^video\//i.test(blob.type) ? blob.type : "video/webm";
+        imports.push({ role: track.role, file: new File([blob], track.name, { type: type }) });
+      }
+      if (manifest.title) episode.title = manifest.title;
+      imports.forEach(function (item) {
+        ingestFile(item.role, item.file);
+      });
+      afterMediaChange();
+      setRiversideStatus(
+        "Imported " + imports.length + " synced track" + (imports.length === 1 ? "" : "s") +
+        " from “" + (manifest.title || resolved.slug) + "” — " +
+        imports.map(function (item) { return BUCKET_LABELS[item.role]; }).join(", ") +
+        " are ready to preview.",
+      );
+    } catch (error) {
+      const hint = window.location.protocol === "file:" ? " Fixture links need the app served over http — run `npm run serve`." : "";
+      showRiversideError("Riverside import failed: " + ((error && error.message) || error) + "." + hint);
+      setRiversideStatus("");
+    } finally {
+      button.disabled = false;
+    }
+  }
+  $("riverside-import").addEventListener("click", importRiversideLink);
+  $("riverside-link").addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      importRiversideLink();
+    }
+  });
+
   // Timed visual moments: type + text + start/end times, listed with remove
   // controls. Moments live on the episode model, so they survive preset and
   // template switches; the preview draws whichever are active each frame.
@@ -450,6 +529,9 @@
 
     document.querySelectorAll("input[data-file-bucket]").forEach(function (input) { input.value = ""; });
     document.querySelectorAll("input[data-link-bucket]").forEach(function (input) { input.value = ""; });
+    $("riverside-link").value = "";
+    setRiversideStatus("");
+    showRiversideError("");
     $("moment-text").value = "";
     $("moment-start").value = "";
     $("moment-duration").value = "";
